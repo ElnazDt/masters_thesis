@@ -7,22 +7,23 @@ from vehicle.vehicle import Vehicle
 vehicle_objects = {}
 packet_sizes = []
 
-# Simulate unexpected pedestrian events at fixed intervals
+# Simulate unexpected pedestrian events at fixed intervals like passing a from streets
 def inject_unexpected_events(step):
-    if step % 50 == 0:
-        print("[EVENT] Full intersection blockage!")
+    if (40 > step) and (step < 80):
+        print("[EVENT] Full path blockage!")
         for v in vehicle_objects.values():
-            v.handle_unexpected_event("full_block")
-    elif step % 40 == 0:
-        print("[EVENT] One lane blocked!")
-        for v in vehicle_objects.values():
-            v.handle_unexpected_event("lane_block")
+            v.handle_unexpected_event("full_block",'41224286#1')
+    # if (20 > step) and (step < 50):
+    #     print("[EVENT] One lane blocked!")
+    #     for v in vehicle_objects.values():
+    #         v.handle_unexpected_event("lane_block", '41224286#1_0')
 
 def run_simulation():
     step = 0
     while traci.simulation.getMinExpectedNumber() > 0:
         traci.simulationStep()
         inject_unexpected_events(step)
+        print('step: ',step)
 
         current_ids = traci.vehicle.getIDList()
         for vid in current_ids:

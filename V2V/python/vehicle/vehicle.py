@@ -45,12 +45,12 @@ class Vehicle:
         self.type_id = traci.vehicle.getTypeID(self.vehicle_id)
         self.current_lane = traci.vehicle.getLaneID(self.vehicle_id)
 
-    def communicate(self, all_vehicles, radius=50.0, safe_distance=20.0):
+    def communicate(self, all_vehicles, radius=20.0, safe_distance=15.0):
         packet_size = self._estimate_packet_size()
 
         # Define intersection area (adjust for your map geometry)
-        INTERSECTION_X_MIN, INTERSECTION_X_MAX = 480, 520
-        INTERSECTION_Y_MIN, INTERSECTION_Y_MAX = 480, 520
+        INTERSECTION_X_MIN, INTERSECTION_X_MAX = 4370, 4400
+        INTERSECTION_Y_MIN, INTERSECTION_Y_MAX = 1320, 1350
 
         def is_inside_intersection(vehicle):
             x, y = vehicle.position
@@ -80,11 +80,10 @@ class Vehicle:
                 nearby_vehicles.append(other)
 
         leaders = [v for v in nearby_vehicles if self._is_ahead_of(v)]
-
         if self.replan_needed:
             print(f"{self.vehicle_id} is replanning due to full blockage.")
             self.replan_needed = False
-            self._replan_route()
+            self._stop_and_wait()
             return packet_size
 
         if self.lane_blocked:
@@ -94,41 +93,40 @@ class Vehicle:
                 self._change_lane()
             else:
                 print(f"{self.vehicle_id} route has only one lane, treating lane block as full block.")
-                self._replan_route()
+                self._stop_and_wait()
             self.lane_blocked = False
             return packet_size
 
-        if not leaders:
+        if not leaders or len(leaders) == 0:
+            if (self.speed < 5 and not self.speed > 25):
+                new_speed = max(0.0, (self.speed if self.speed > 0 else 1.0) * 1.2)
+                traci.vehicle.setSpeed(self.vehicle_id, new_speed)
+                print(f"{self.vehicle_id} accelerate to {new_speed:.2f} to continue.")
             return packet_size
 
         nearest_leader = min(leaders, key=lambda v: self._distance_to(v))
         distance = self._distance_to(nearest_leader)
-
+        print(f"distance is distance{distance} this is id {self.vehicle_id} and is intercetion {is_inside_intersection(self)}")
         if distance < safe_distance:
             new_speed = max(0.0, nearest_leader.speed * 0.8)
             traci.vehicle.setSpeed(self.vehicle_id, new_speed)
             print(f"{self.vehicle_id} slows to {new_speed:.2f} to stay {distance:.2f}m behind {nearest_leader.vehicle_id}")
-        else:
+        else: 
             print(f"{self.vehicle_id} maintains speed {self.speed:.2f}, leader {nearest_leader.vehicle_id} is {distance:.2f}m ahead")
 
         return packet_size
 
 
-    def handle_unexpected_event(self, event_type="full_block"):
-        if event_type == "full_block":
+    def handle_unexpected_event(self, event_type="full_block", lane_name = ''):
+        print('self.current_lane', self.current_lane)
+        if event_type == "full_block" and lane_name in self.current_lane:
             self.replan_needed = True
-        elif event_type == "lane_block":
+        elif event_type == "lane_block" and lane_name == self.current_lane:
             self.lane_blocked = True
 
-    def _replan_route(self):
-        current_edge = self.edge_id
-        if not self.route:
-            return
-        destination_edge = self.route[-1]
-        route_obj = traci.simulation.findRoute(current_edge, destination_edge)
-        new_route = route_obj.edges
-        traci.vehicle.setRoute(self.vehicle_id, new_route)
-        print(f"{self.vehicle_id} replanned route: {new_route}")
+    def _stop_and_wait(self):
+        traci.vehicle.setSpeed(self.vehicle_id, 0)
+        print(f"{self.vehicle_id} stopped for full blockage")
 
     def _change_lane(self):
         lane_index = traci.vehicle.getLaneIndex(self.vehicle_id)
@@ -145,7 +143,7 @@ class Vehicle:
         return self.edge_id == other.edge_id
 
     def _is_ahead_of(self, other):
-        return self.lane_pos > other.lane_pos
+        return self.lane_pos < other.lane_pos
 
     def _distance_to(self, other):
         x1, y1 = self.position
