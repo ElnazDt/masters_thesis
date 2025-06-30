@@ -31,7 +31,7 @@ class Vehicle:
         self.vehicle_id = vehicle_id
         traci.vehicle.setSpeedMode(vehicle_id, 0)
         self.update()
-        self.replan_needed = False
+        self.stop_needed = False
         self.lane_blocked = False
 
     def update(self):
@@ -80,9 +80,9 @@ class Vehicle:
                 nearby_vehicles.append(other)
 
         leaders = [v for v in nearby_vehicles if self._is_ahead_of(v)]
-        if self.replan_needed:
+        if self.stop_needed:
             print(f"{self.vehicle_id} is replanning due to full blockage.")
-            self.replan_needed = False
+            self.stop_needed = False
             self._stop_and_wait()
             return packet_size
 
@@ -120,7 +120,7 @@ class Vehicle:
     def handle_unexpected_event(self, event_type="full_block", lane_name = ''):
         print('self.current_lane', self.current_lane)
         if event_type == "full_block" and lane_name in self.current_lane:
-            self.replan_needed = True
+            self.stop_needed = True
         elif event_type == "lane_block" and lane_name == self.current_lane:
             self.lane_blocked = True
 

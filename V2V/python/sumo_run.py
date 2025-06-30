@@ -13,7 +13,7 @@ def inject_unexpected_events(step):
         print("[EVENT] Full path blockage!")
         for v in vehicle_objects.values():
             v.handle_unexpected_event("full_block",'41224286#1')
-    # if (20 > step) and (step < 50):
+    # if (40 > step) and (step < 80):
     #     print("[EVENT] One lane blocked!")
     #     for v in vehicle_objects.values():
     #         v.handle_unexpected_event("lane_block", '41224286#1_0')

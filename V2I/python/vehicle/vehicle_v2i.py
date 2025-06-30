@@ -29,7 +29,6 @@ class VehicleV2I:
         self.vehicle_id = vehicle_id
         traci.vehicle.setSpeedMode(vehicle_id, 0)
         self.update()
-        self.replan_needed = False
         self.lane_blocked = False
 
     def update(self):
@@ -67,21 +66,12 @@ class VehicleV2I:
             print(f"{self.vehicle_id} received decision to GO.")
 
 
-    def handle_unexpected_event(self, event_type="full_block"):
-        if event_type == "full_block":
-            self.replan_needed = True
-        elif event_type == "lane_block":
-            self.lane_blocked = True
-
-    def _replan_route(self):
-        current_edge = self.edge_id
-        if not self.route:
-            return
-        destination_edge = self.route[-1]
-        route_obj = traci.simulation.findRoute(current_edge, destination_edge)
-        new_route = route_obj.edges
-        traci.vehicle.setRoute(self.vehicle_id, new_route)
-        print(f"{self.vehicle_id} replanned route: {new_route}")
+    def handle_unexpected_event(self, event_type="full_block", lane_name = ''):
+        print('self.current_lane', self.current_lane) 
+        if event_type == "full_block" and lane_name in self.current_lane:
+            traci.vehicle.setSpeed(self.vehicle_id, 0)
+        elif event_type == "lane_block" and lane_name == self.current_lane:
+            self._change_lane()
 
     def _change_lane(self):
         lane_index = traci.vehicle.getLaneIndex(self.vehicle_id)
@@ -93,6 +83,10 @@ class VehicleV2I:
                 print(f"{self.vehicle_id} switched to lane {alt_lane}")
             except traci.TraCIException as e:
                 print(f"Lane change failed for {self.vehicle_id}: {e}")
+        else:
+            # consider fullblock if only one lane exists 
+            print(f'{self.vehicle_id} stopped for block!')
+            traci.vehicle.setSpeed(self.vehicle_id, 0)
 
     def _is_on_same_edge(self, other):
         return self.edge_id == other.edge_id

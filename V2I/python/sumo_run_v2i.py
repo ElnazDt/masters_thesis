@@ -10,14 +10,14 @@ intersection_manager = IntersectionManager()
 
 # Simulate unexpected pedestrian events at fixed intervals
 def inject_unexpected_events(step):
-    if step % 50 == 0:
-        print("[EVENT] Full intersection blockage!")
-        for v in vehicle_objects.values():
-            v.handle_unexpected_event("full_block")
-    elif step % 40 == 0:
+    # if (20 > step) and (step < 30):
+    #     print("[EVENT] Full path blockage!")
+    #     for v in vehicle_objects.values():
+    #         v.handle_unexpected_event("full_block",'41224286#1')
+    if (10 > step) and (step < 30):
         print("[EVENT] One lane blocked!")
         for v in vehicle_objects.values():
-            v.handle_unexpected_event("lane_block")
+            v.handle_unexpected_event("lane_block", '41224286#1_0')
 
 def run_simulation():
     step = 0
@@ -28,6 +28,7 @@ def run_simulation():
 
         traci.simulationStep()
         inject_unexpected_events(step)
+        print('step', step)
 
         current_ids = traci.vehicle.getIDList()
         for vid in current_ids:
@@ -37,14 +38,15 @@ def run_simulation():
                 vehicle_objects[vid].update()
 
         active_vehicles = {vid: vehicle_objects[vid] for vid in current_ids}
+        active_vehicles = {vid: vehicle_objects[vid] for vid in current_ids}
 
         for vid, v in active_vehicles.items():
             intersection_manager.register_vehicle(vid, v.report_state())
 
         decisions = intersection_manager.decide_priorities()
-        for vid, decision in decisions.items():
-            vehicle_objects[vid].apply_decision(decision)
-            packet_sizes.append(vehicle_objects[vid]._estimate_packet_size())
+        for vid, v in active_vehicles.items():
+            active_vehicles[vid].apply_decision(decisions[vid])
+            packet_sizes.append(active_vehicles[vid]._estimate_packet_size())
 
         step += 1
 
