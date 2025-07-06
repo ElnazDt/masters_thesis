@@ -5,9 +5,10 @@ import math
 import json
 
 class MessagePacket:
-    """Simulated V2V message structure using realistic formatting."""
+    """Simulated V2V message structure with protocol-specific size estimation."""
+
     def __init__(self, vehicle_id, position, speed, angle, route):
-        self.vehicle_id = "VIN-EU-2025-XYZ-veh0"
+        self.vehicle_id = vehicle_id
         self.position = position
         self.speed = speed
         self.angle = angle
@@ -23,8 +24,61 @@ class MessagePacket:
         }
         return json.dumps(data).encode("utf-8")
 
-    def size(self):
+    def payload_size(self):
         return len(self.to_bytes())
+
+    @staticmethod
+    def report_sizes(payload, max_overhead=False):
+        """
+        Reports total size of V2V messages with overheads for DSRC, C-V2X, and 5G NR-V2X.
+
+        References per protocol:
+        - DSRC:
+            [1] IEEE 802.11p-2010 MAC Header: https://ieeexplore.ieee.org/document/5515717
+            [2] IEEE 1609.2-2016 Security Layer: https://standards.ieee.org/standard/1609_2-2016.html
+        - C-V2X:
+            [3] 3GPP TS 36.331 (RRC/Sidelink): https://www.3gpp.org/ftp/Specs/latest/Rel-14/36_series/36331-g00.zip
+            [4] Qualcomm Whitepaper (MAC/RLC/PDCP & security): https://www.qualcomm.com/media/documents/files/why-cellular-v2x.pdf
+        - 5G NR-V2X:
+            [5] 3GPP TS 38.300 & TS 38.401 (NR sidelink and stack): https://www.3gpp.org/DynaReport/38-series.htm
+            [6] IEEE Access Paper on 5G-V2X security: https://ieeexplore.ieee.org/document/9279244
+        """
+
+        # === DSRC Overhead ===
+        # MAC Layer (IEEE 802.11p): 30–40 bytes → Ref [1]
+        # LLC/SNAP: fixed 8 bytes
+        # Security Layer (IEEE 1609.2 ECDSA + cert): 60–100 bytes → Ref [2]
+        mac_header    = 40 if max_overhead else 30
+        llc_snap      = 8
+        security_dsrc = 100 if max_overhead else 60
+        dsrc_total = payload + mac_header + llc_snap + security_dsrc
+
+        # === C-V2X Overhead ===
+        # Sidelink Control Info (SCI, 3GPP TS 36.331): 16–24 bytes → Ref [3]
+        # MAC + PDCP + RLC stack (Qualcomm/3GPP): 20–40 bytes → Ref [4]
+        # Security (Optional): 48 bytes assumed → Ref [4]
+        sci            = 24 if max_overhead else 16
+        protocol_stack = 40 if max_overhead else 20
+        security_cv2x  = 48
+        cv2x_total = payload + sci + protocol_stack + security_cv2x
+
+        # === 5G NR-V2X Overhead ===
+        # Scheduling Info (3GPP TS 38.300): 24–40 bytes → Ref [5]
+        # NR MAC/PHY/PDCP stack (3GPP): 48 bytes assumed → Ref [5]
+        # Security + QoS (IEEE Access): 72 bytes assumed → Ref [6]
+        scheduling_info   = 40 if max_overhead else 24
+        protocol_stack_5g = 48
+        security_5g       = 72
+        v2x5g_total = payload + scheduling_info + protocol_stack_5g + security_5g
+
+        return {
+            "Payload": payload,
+            "DSRC": dsrc_total,
+            "C-V2X": cv2x_total,
+            "5G NR-V2X": v2x5g_total
+        }
+
+
 
 class Vehicle:
     def __init__(self, vehicle_id):
@@ -46,9 +100,9 @@ class Vehicle:
         self.current_lane = traci.vehicle.getLaneID(self.vehicle_id)
 
     def communicate(self, all_vehicles, radius=20.0, safe_distance=15.0):
-        packet_size = self._estimate_packet_size()
+        packet_size = self._estimate_packet_payload_size()
 
-        # Define intersection area (adjust for your map geometry)
+        # Define intersection area
         INTERSECTION_X_MIN, INTERSECTION_X_MAX = 4370, 4400
         INTERSECTION_Y_MIN, INTERSECTION_Y_MAX = 1320, 1350
 
@@ -56,7 +110,7 @@ class Vehicle:
             x, y = vehicle.position
             return INTERSECTION_X_MIN <= x <= INTERSECTION_X_MAX and INTERSECTION_Y_MIN <= y <= INTERSECTION_Y_MAX
 
-        # Step 1: If I'm OUTSIDE the intersection, check for conflicts BEFORE ENTERING
+        # Step 1: OUTSIDE the intersection, check for conflicts BEFORE ENTERING
         if not is_inside_intersection(self):
             for other in all_vehicles.values():
                 if other.vehicle_id == self.vehicle_id:
@@ -150,7 +204,7 @@ class Vehicle:
         x2, y2 = other.position
         return math.hypot(x2 - x1, y2 - y1)
 
-    def _estimate_packet_size(self):
+    def _estimate_packet_payload_size(self):
         packet = MessagePacket(
             vehicle_id=self.vehicle_id,
             position=self.position,
@@ -158,4 +212,4 @@ class Vehicle:
             angle=self.angle,
             route=self.route
         )
-        return packet.size()
+        return packet.payload_size()

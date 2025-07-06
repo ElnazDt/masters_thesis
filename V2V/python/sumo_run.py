@@ -3,6 +3,8 @@
 
 import traci
 from vehicle.vehicle import Vehicle
+from vehicle.vehicle import MessagePacket
+import tabulate
 
 vehicle_objects = {}
 packet_sizes = []
@@ -23,7 +25,7 @@ def run_simulation():
     while traci.simulation.getMinExpectedNumber() > 0:
         traci.simulationStep()
         inject_unexpected_events(step)
-        print('step: ',step)
+        # print('step: ',step)
 
         current_ids = traci.vehicle.getIDList()
         for vid in current_ids:
@@ -44,7 +46,40 @@ def run_simulation():
 
     # Report max packet size
     if packet_sizes:
-        print(f"\n[REPORT] Maximum V2V packet size observed: {max(packet_sizes)} bytes")
+        min_payload = min(packet_sizes)
+        max_payload = max(packet_sizes)
+        print('\n======================================================================= Report =======================================================================\n')
+        # Collect reports
+        reports = {
+            "Min OH-Min PL": MessagePacket.report_sizes(min_payload, False),
+            "Max OH-Min PL": MessagePacket.report_sizes(min_payload, True),
+            "Min OH-Max PL": MessagePacket.report_sizes(max_payload, False),
+            "Max OH-Max PL": MessagePacket.report_sizes(max_payload, True)
+        }
+
+        # Build table header
+        headers = ["Protocol"]
+        for label in reports:
+            headers.append(f"{label}\n(Size)")
+            headers.append(f"{label}\n(OH %)")
+
+        # Build table rows
+        protocols = ["DSRC", "C-V2X", "5G NR-V2X"]
+        table = []
+
+        for proto in protocols:
+            row = [proto]
+            for label, report in reports.items():
+                total = report[proto]
+                payload = report["Payload"]
+                overhead = total - payload
+                overhead_percentage = (overhead / total) * 100
+                row.append(f"{total} bytes")
+                row.append(f"{overhead_percentage:.1f}%")
+            table.append(row)
+
+        # Print the final table
+        print(tabulate.tabulate(table, headers=headers, tablefmt="grid"))
 
 if __name__ == "__main__":
     traci.start(["sumo-gui", "-c", "C:/Users/elnaz/thesis/V2V/osm.sumocfg"])

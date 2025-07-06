@@ -11,7 +11,7 @@ class IntersectionManager:
         # only vehicles approaching the intersection
         approaching = {
             vid: v for vid, v in self.vehicle_states.items()
-            if v['last_lane_pos'] is not None and v['lane_pos'] < v['last_lane_pos']  # vehicle is moving toward center
+            if v['last_lane_pos'] is not None and v['lane_pos'] < v['last_lane_pos']  
             and v['lane_pos'] < 30.0  
         }
 
