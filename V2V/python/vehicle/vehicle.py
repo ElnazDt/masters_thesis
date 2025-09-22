@@ -89,6 +89,7 @@ class Vehicle:
         self.lane_blocked = False
 
     def update(self):
+        print('current lane',  traci.vehicle.getLaneID(self.vehicle_id))
         self.position = traci.vehicle.getPosition(self.vehicle_id)
         self.speed = traci.vehicle.getSpeed(self.vehicle_id)
         self.angle = traci.vehicle.getAngle(self.vehicle_id)
@@ -172,10 +173,21 @@ class Vehicle:
 
 
     def handle_unexpected_event(self, event_type="full_block", lane_name = ''):
-        print('self.current_lane', self.current_lane)
-        if event_type == "full_block" and lane_name in self.current_lane:
+        lane_edge = lane_name.split('_')[0] if lane_name else ''
+        my_edge = self.edge_id  # already set in update()
+        print(f'lane_name={lane_name}, self.current_lane={self.current_lane}')
+        # Some junction/internal lanes start with ":" – treat those as same edge context
+        def same_edge():
+            # If I'm on an internal lane, SUMO often still sets edge_id to the
+            # connected edge; if not, fall back to startswith check against lane_edge
+            return (my_edge == lane_edge) or my_edge.startswith(lane_edge)
+
+        if event_type == "full_block" and (lane_name in self.current_lane or same_edge()):
             self.stop_needed = True
-        elif event_type == "lane_block" and lane_name == self.current_lane:
+            print(f"{self.vehicle_id} full block on edge {lane_edge} (curr lane {self.current_lane})")
+
+        elif event_type == "lane_block" and (lane_name == self.current_lane or same_edge()):
+            print('lane_block here.')
             self.lane_blocked = True
 
     def _stop_and_wait(self):

@@ -8,37 +8,40 @@ import matplotlib.pyplot as plt
 import tabulate
 
 vehicle_objects = {}
+active_vehicles = {}
 packet_sizes = []
 packet_sizes_per_steps = []
-
-# Simulate unexpected pedestrian events at fixed intervals like passing a from streets
-def inject_unexpected_events(step):
-    if (40 > step) and (step < 80):
-        print("[EVENT] Full path blockage!")
-        for v in vehicle_objects.values():
-            v.handle_unexpected_event("full_block",'41224286#1')
-    # if (40 > step) and (step < 80):
-    #     print("[EVENT] One lane blocked!")
-    #     for v in vehicle_objects.values():
-    #         v.handle_unexpected_event("lane_block", '41224286#1_0')
 
 def run_simulation():
     step = 0
     while traci.simulation.getMinExpectedNumber() > 0:
         traci.simulationStep()
-        inject_unexpected_events(step)
-        # print('step: ',step)
+       
+        print('step: ',step)
 
-        current_ids = traci.vehicle.getIDList()
+        current_ids = set(traci.vehicle.getIDList())
+
+        print('ids', current_ids)
+        for vid in current_ids - vehicle_objects.keys():
+            vehicle_objects[vid] = Vehicle(vid)
+
+        # update active vehicles only
         for vid in current_ids:
-            if vid not in vehicle_objects:
-                vehicle_objects[vid] = Vehicle(vid)
-            else:
-                vehicle_objects[vid].update()
+            vehicle_objects[vid].update()
+        # removed departed vehicles
+        for departed in list(vehicle_objects.keys() - current_ids):
+            vehicle_objects.pop(departed, None)
 
+        
         active_vehicles = {vid: vehicle_objects[vid] for vid in current_ids}
         step_packet_sizes = []
         for v in active_vehicles.values():
+            # if (step > 40) and (step < 80):
+            #     print("[EVENT] Full path blockage!")
+            #     v.handle_unexpected_event("full_block",'41224286#1')
+            # if (step > 10) and (step < 70):
+            #     print("[EVENT] One lane blocked!")
+            #     v.handle_unexpected_event("lane_block", '35174151#1_1')
             size = v.communicate(active_vehicles)
             step_packet_sizes.append(size)
             packet_sizes.append(size)
@@ -101,7 +104,7 @@ def run_simulation():
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig('./figures/v2v_packet_sizes_per_steps.png')
+        plt.savefig('./figures/v2v_normal_packet_sizes_per_steps.png')
         plt.show()
     # adding the protocols overhead to above feagure
     def map_with_overheads(item):
@@ -132,7 +135,7 @@ def run_simulation():
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig('./figures/v2v_packet_sizes_per_steps_with_OH_in_each_protocol.png')
+        plt.savefig('./figures/v2v_normal_packet_sizes_per_steps_with_OH_in_each_protocol.png')
         plt.show()
 
 if __name__ == "__main__":

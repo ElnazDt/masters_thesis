@@ -124,6 +124,7 @@ class VehicleV2I:
         if event_type == "full_block" and lane_name in self.current_lane:
             traci.vehicle.setSpeed(self.vehicle_id, 0)
         elif event_type == "lane_block" and lane_name == self.current_lane:
+            print('here in lane block')
             self._change_lane()
 
     def _change_lane(self):
@@ -152,7 +153,7 @@ class VehicleV2I:
         x2, y2 = other.position
         return math.hypot(x2 - x1, y2 - y1)
 
-    def _estimate_packet_payload_size(self):
+    def estimate_packet_payload_size(self):
         packet = MessagePacket(
             vehicle_id=self.vehicle_id,
             position=self.position,
