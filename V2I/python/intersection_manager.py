@@ -17,7 +17,7 @@ class IntersectionManager:
 
         if not approaching:
             return {vid: 'go' for vid in self.vehicle_states}
-
+        # print('approaching.items()', approaching.items())
         # Choose one to go
         sorted_approaching = sorted(approaching.items(), key=lambda item: item[1]['lane_pos'])
         allowed_vid = sorted_approaching[0][0]

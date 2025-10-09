@@ -1,5 +1,3 @@
-# vehicle.py - Enhanced Vehicle Class with Improved V2V Intersection Behavior
-
 import traci
 import math
 import json
@@ -123,8 +121,8 @@ class Vehicle:
                         print(f"{self.vehicle_id} WAIT — conflict with {other.vehicle_id} already in intersection.")
                         return packet_size
 
-        # Step 2: Once I'm INSIDE the intersection, NEVER STOP ME
-        # -> No action needed here — we just don’t let others stop us
+        # Step 2: Once the vehicle is INSIDE the intersection, NEVER STOP IT
+        # -> No action needed
 
         # Step 3: Local edge-based safety (rear-end logic)
         nearby_vehicles = []
@@ -174,11 +172,11 @@ class Vehicle:
 
     def handle_unexpected_event(self, event_type="full_block", lane_name = ''):
         lane_edge = lane_name.split('_')[0] if lane_name else ''
-        my_edge = self.edge_id  # already set in update()
+        my_edge = self.edge_id  
         print(f'lane_name={lane_name}, self.current_lane={self.current_lane}')
         # Some junction/internal lanes start with ":" – treat those as same edge context
         def same_edge():
-            # If I'm on an internal lane, SUMO often still sets edge_id to the
+            # If the vehicle is on an internal lane, SUMO often still sets edge_id to the
             # connected edge; if not, fall back to startswith check against lane_edge
             return (my_edge == lane_edge) or my_edge.startswith(lane_edge)
 
@@ -189,21 +187,22 @@ class Vehicle:
         elif event_type == "lane_block" and (lane_name == self.current_lane or same_edge()):
             print('lane_block here.')
             self.lane_blocked = True
+            self.lane_blocked_number = lane_name.split('_')[1] if lane_name.split('_')[1] else ''
 
     def _stop_and_wait(self):
         traci.vehicle.setSpeed(self.vehicle_id, 0)
         print(f"{self.vehicle_id} stopped for full blockage")
 
     def _change_lane(self):
-        lane_index = traci.vehicle.getLaneIndex(self.vehicle_id)
         num_lanes = traci.edge.getLaneNumber(self.edge_id)
-        if num_lanes > 1:
-            alt_lane = 1 - lane_index if num_lanes == 2 else (lane_index + 1) % num_lanes
-            try:
-                traci.vehicle.changeLane(self.vehicle_id, alt_lane, 25.0)
-                print(f"{self.vehicle_id} switched to lane {alt_lane}")
-            except traci.TraCIException as e:
-                print(f"Lane change failed for {self.vehicle_id}: {e}")
+        for number in range(num_lanes-1):
+            if number != self.lane_blocked_number:
+                try:
+                    traci.vehicle.changeLane(self.vehicle_id, number, 25.0)
+                    print(f"{self.vehicle_id} switched to lane {number}")
+                    break
+                except traci.TraCIException as e:
+                    print(f"Lane change failed for {self.vehicle_id}: {e}")
 
     def _is_on_same_edge(self, other):
         return self.edge_id == other.edge_id

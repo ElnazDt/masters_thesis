@@ -1,6 +1,4 @@
 
-# sumo_run.py - Enhanced V2V Simulation Controller
-
 import traci
 from vehicle.vehicle import Vehicle
 from vehicle.vehicle import MessagePacket
@@ -36,9 +34,9 @@ def run_simulation():
         active_vehicles = {vid: vehicle_objects[vid] for vid in current_ids}
         step_packet_sizes = []
         for v in active_vehicles.values():
-            # if (step > 40) and (step < 80):
-            #     print("[EVENT] Full path blockage!")
-            #     v.handle_unexpected_event("full_block",'41224286#1')
+            if (step > 40) and (step < 80):
+                print("[EVENT] Full path blockage!")
+                v.handle_unexpected_event("full_block",'41224286#1')
             # if (step > 10) and (step < 70):
             #     print("[EVENT] One lane blocked!")
             #     v.handle_unexpected_event("lane_block", '35174151#1_1')
